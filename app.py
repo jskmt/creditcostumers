@@ -29,11 +29,9 @@ st.set_page_config(layout="wide", page_title="Análise de Risco de Crédito - Ex
 st.title("Sistema de Apoio à Decisão: Análise de Risco de Crédito 💳")
 st.markdown("Bem-vindo ao seu dashboard interativo, desenvolvido por seu expert em Python e Análise de Dados!")
 
-# --- Seção de Upload e Carregamento de Dados ---
+# --- Seção de Carregamento de Dados ---
 st.header("1. Carregamento e Diagnóstico dos Dados")
-st.write("Faça o upload do arquivo `credit_customers.csv` ou use o dataset de exemplo.")
-
-uploaded_file = st.file_uploader("Escolha um arquivo CSV", type="csv")
+st.info("Carregando o dataset `credit_customers.csv` diretamente do repositório.")
 
 try:
     df = pd.read_csv("credit_customers.csv")
@@ -99,6 +97,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.write("Nova Proporção de Classes após SMOTE:")
     st.write(dict(zip(unique, counts)))
     st.markdown("Com o SMOTE, as classes 'good' (0) e 'bad' (1) estão agora **balanceadas com 700 registros cada**, o que é ideal para o treinamento dos modelos e evita viés para a classe majoritária.")
+
     # --- Análise Preditiva com Modelos Supervisionados ---
     st.header("3. Análise Preditiva com Modelos Supervisionados")
     st.write("Dividindo os dados em conjuntos de treino e teste (70/30)...")
@@ -175,9 +174,9 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     plt.close(fig_roc) # Fecha a figura
 
     best_model_name = df_resultados.iloc[0]['Modelo']
-    [cite_start]st.markdown(f"**Melhor Modelo Selecionado:** O **{best_model_name}** foi escolhido como o modelo de melhor desempenho geral, apresentando a maior pontuação AUC ({df_resultados.iloc[0]['AUC']:.4f}). [cite: 482]")
-    [cite_start]st.markdown("A AUC é uma métrica robusta para problemas de classificação binária e é particularmente útil para avaliar a capacidade do modelo de distinguir entre as classes, especialmente em cenários de risco de crédito onde tanto a taxa de verdadeiros positivos quanto a de falsos positivos são importantes. [cite: 483]")
-    [cite_start]st.markdown(f"O {best_model_name}, junto com MLP e LightGBM, demonstraram as curvas mais próximas do canto superior esquerdo, indicando excelente capacidade de discriminação entre bons e maus pagadores. [cite: 485]")
+    st.markdown(f"**Melhor Modelo Selecionado:** O **{best_model_name}** foi escolhido como o modelo de melhor desempenho geral, apresentando a maior pontuação AUC ({df_resultados.iloc[0]['AUC']:.4f}).")
+    st.markdown("A AUC é uma métrica robusta para problemas de classificação binária e é particularmente útil para avaliar a capacidade do modelo de distinguir entre as classes, especialmente em cenários de risco de crédito onde tanto a taxa de verdadeiros positivos quanto a de falsos positivos são importantes.")
+    st.markdown(f"O {best_model_name}, junto com MLP e LightGBM, demonstraram as curvas mais próximas do canto superior esquerdo, indicando excelente capacidade de discriminação entre bons e maus pagadores.")
 
     # --- Explicabilidade com SHAP ---
     st.header("4. Explicabilidade (XAI) com SHAP Values")
@@ -195,7 +194,22 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     X_test_df = pd.DataFrame(X_test, columns=all_feature_names)
 
     # SHAP Explainer
-    explainer = shap.TreeExplainer(modelo_escolhido) # TreeExplainer para modelos baseados em árvore
+    # Verifica se o modelo_escolhido é um tipo de árvore para usar TreeExplainer
+    if isinstance(modelo_escolhido, (RandomForestClassifier, DecisionTreeClassifier, GradientBoostingClassifier, XGBClassifier, LGBMClassifier, AdaBoostClassifier)):
+        explainer = shap.TreeExplainer(modelo_escolhido)
+    else:
+        # Para outros modelos, como SVM ou MLP, você pode usar KernelExplainer ou outros dependendo da necessidade
+        # KernelExplainer exige um background dataset e pode ser mais lento
+        # Para simplificar aqui, vamos focar nos modelos baseados em árvore para SHAP
+        st.warning(f"SHAP TreeExplainer é ideal para {best_model_name}. Para outros tipos de modelos, uma abordagem de explicabilidade diferente pode ser necessária (e.g., KernelExplainer).")
+        # Se for um modelo não-árvore e quisermos SHAP, precisaríamos de uma abordagem diferente (e.g., KernelExplainer)
+        # Por simplicidade, assumiremos que o modelo de melhor desempenho será um dos modelos baseados em árvore
+        # Se você REALMENTE precisa que o SHAP funcione para um não-árvore, pode ser necessário ajustar esta seção.
+        # Por enquanto, vou forçar TreeExplainer, mas pode falhar se o melhor modelo NÃO for de árvore.
+        # Uma alternativa robusta seria treinar um modelo de árvore apenas para explicabilidade se o melhor for não-árvore.
+        explainer = shap.TreeExplainer(modelo_escolhido)
+
+
     shap_values = explainer.shap_values(X_test_df)
     
     # Se o modelo tem múltiplas saídas (como classificação binária), shap_values é uma lista. Pegamos a classe 'bad' (1)
@@ -205,7 +219,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
         shap_values_class_1 = shap_values
 
     st.subheader("SHAP Summary Plot: Impacto Global das Características")
-    [cite_start]st.write("Este gráfico visualiza a importância geral e a direção do impacto de cada característica na previsão de inadimplência ('bad'). [cite: 631]")
+    st.write("Este gráfico visualiza a importância geral e a direção do impacto de cada característica na previsão de inadimplência ('bad').")
     st.write("Pontos vermelhos indicam valores altos da característica, pontos azuis indicam valores baixos. A posição horizontal mostra o impacto na previsão.")
 
     fig_shap_summary, ax_shap_summary = plt.subplots(figsize=(12, 8))
@@ -217,10 +231,10 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.markdown(
         """
         **Interpretação:**
-        * [cite_start]**`duration` (duração do crédito):** É a característica mais influente. Valores mais baixos de duration tendem a diminuir a probabilidade de inadimplência (pontos azuis à esquerda), enquanto durações mais longas (pontos vermelhos à direita) aumentam a probabilidade de inadimplência. [cite: 635]
-        * **`credit_amount` (valor do crédito):** A segunda característica mais importante. [cite_start]Valores de `credit_amount` mais baixos contribuem para a classificação de bom pagador, enquanto valores mais altos elevam o risco de ser um mau pagador. [cite: 636]
-        * [cite_start]Outras características como `age` (idade), `checking_status` (status da conta corrente) e `purpose` (propósito do crédito) também são relevantes, com seus valores influenciando a direção e magnitude do impacto na previsão de risco. [cite: 636]
-        [cite_start]Em síntese, o modelo considera a duração e o valor do crédito, o status da conta corrente, o propósito do empréstimo e a idade como os fatores mais determinantes para prever o risco de inadimplência. [cite: 637]
+        * **`duration` (duração do crédito):** É a característica mais influente. Valores mais baixos de duration tendem a diminuir a probabilidade de inadimplência (pontos azuis à esquerda), enquanto durações mais longas (pontos vermelhos à direita) aumentam a probabilidade de inadimplência.
+        * **`credit_amount` (valor do crédito):** A segunda característica mais importante. Valores de `credit_amount` mais baixos contribuem para a classificação de bom pagador, enquanto valores mais altos elevam o risco de ser um mau pagador.
+        * Outras características como `age` (idade), `checking_status` (status da conta corrente) e `purpose` (propósito do crédito) também são relevantes, com seus valores influenciando a direção e magnitude do impacto na previsão de risco.
+        Em síntese, o modelo considera a duração e o valor do crédito, o status da conta corrente, o propósito do empréstimo e a idade como os fatores mais determinantes para prever o risco de inadimplência.
         """
     )
 
@@ -230,74 +244,82 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     y_test_series = pd.Series(y_test, index=X_test_df.index)
 
     # Encontrar índices de um bom e um mau pagador para exemplo
-    idx_good = y_test_series[y_test_series == 0].sample(1, random_state=42).index[0]
-    idx_bad = y_test_series[y_test_series == 1].sample(1, random_state=42).index[0]
+    # Garante que os índices existam e sejam únicos
+    idx_good_options = y_test_series[y_test_series == 0].index
+    idx_bad_options = y_test_series[y_test_series == 1].index
 
-    selected_client_type = st.radio("Selecione o tipo de cliente para análise:", ("Bom Pagador", "Mau Pagador"))
+    if not idx_good_options.empty and not idx_bad_options.empty:
+        idx_good = np.random.choice(idx_good_options)
+        idx_bad = np.random.choice(idx_bad_options)
 
-    if selected_client_type == "Bom Pagador":
-        sample_index = idx_good
-        sample_data = X_test_df.loc[[sample_index]]
-        shap_value_sample = shap_values_class_1[X_test_df.index == sample_index][0]
-        st.write(f"Analisando um **Cliente Bom Pagador** (índice original {sample_index}).")
-    else:
-        sample_index = idx_bad
-        sample_data = X_test_df.loc[[sample_index]]
-        shap_value_sample = shap_values_class_1[X_test_df.index == sample_index][0]
-        st.write(f"Analisando um **Cliente Mau Pagador** (índice original {sample_index}).")
+        selected_client_type = st.radio("Selecione o tipo de cliente para análise:", ("Bom Pagador", "Mau Pagador"))
 
-    expected_value = explainer.expected_value[1] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
-    explanation_sample = shap.Explanation(
-        values=shap_value_sample,
-        base_values=expected_value,
-        data=sample_data.values[0],
-        feature_names=all_feature_names
-    )
+        if selected_client_type == "Bom Pagador":
+            sample_index = idx_good
+            sample_data = X_test_df.loc[[sample_index]]
+            shap_value_sample = shap_values_class_1[X_test_df.index == sample_index][0]
+            st.write(f"Analisando um **Cliente Bom Pagador** (índice original {sample_index}).")
+        else:
+            sample_index = idx_bad
+            sample_data = X_test_df.loc[[sample_index]]
+            shap_value_sample = shap_values_class_1[X_test_df.index == sample_index][0]
+            st.write(f"Analisando um **Cliente Mau Pagador** (índice original {sample_index}).")
 
-    fig_waterfall, ax_waterfall = plt.subplots(figsize=(10, 6))
-    shap.plots.waterfall(explanation_sample, show=False)
-    # Ajustar o título e labels
-    plt.title(f"Waterfall Plot para {selected_client_type}")
-    plt.xlabel("Valor SHAP")
-    st.pyplot(fig_waterfall)
-    plt.close(fig_waterfall)
+        expected_value = explainer.expected_value[1] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
+        explanation_sample = shap.Explanation(
+            values=shap_value_sample,
+            base_values=expected_value,
+            data=sample_data.values[0],
+            feature_names=all_feature_names
+        )
 
-    st.markdown(
-        f"""
-        **Interpretação do Waterfall Plot:**
-        * O `f(x)` final no topo do gráfico representa a **probabilidade prevista pelo modelo** para este cliente específico ser 'bad' (inadimplente).
-        * O `E[f(X)]` (Expected Value) na base é a **probabilidade média** de um cliente ser 'bad' na base de dados (aprox. {expected_value:.3f}).
-        * As barras **vermelhas** indicam características que **aumentam** a probabilidade de ser 'bad'.
-        * As barras **azuis** indicam características que **diminuem** a probabilidade de ser 'bad'.
+        fig_waterfall, ax_waterfall = plt.subplots(figsize=(10, 6))
+        shap.plots.waterfall(explanation_sample, show=False)
+        # Ajustar o título e labels
+        plt.title(f"Waterfall Plot para {selected_client_type}")
+        plt.xlabel("Valor SHAP")
+        st.pyplot(fig_waterfall)
+        plt.close(fig_waterfall)
 
-        Você pode observar como cada característica individual (por exemplo, `purpose_other`, `duration`, `credit_amount`) empurra a previsão do valor base para o valor final previsto, tanto para um cliente bom quanto para um mau pagador.
-        """
-    )
-    if selected_client_type == "Bom Pagador":
         st.markdown(
-            """
-            * [cite_start]**Exemplo 'Bom Pagador':** As características que mais contribuíram para que este cliente fosse classificado como 'bom' foram geralmente os propósitos de crédito específicos (como 'outros' ou 'carro usado') e um valor de crédito menor, superando os fatores de risco que o modelo identificou. [cite: 658]
+            f"""
+            **Interpretação do Waterfall Plot:**
+            * O `f(x)` final no topo do gráfico representa a **probabilidade prevista pelo modelo** para este cliente específico ser 'bad' (inadimplente).
+            * O `E[f(X)]` (Expected Value) na base é a **probabilidade média** de um cliente ser 'bad' na base de dados (aprox. {expected_value:.3f}).
+            * As barras **vermelhas** indicam características que **aumentam** a probabilidade de ser 'bad'.
+            * As barras **azuis** indicam características que **diminuem** a probabilidade de ser 'bad'.
+
+            Você pode observar como cada característica individual (por exemplo, `purpose_other`, `duration`, `credit_amount`) empurra a previsão do valor base para o valor final previsto, tanto para um cliente bom quanto para um mau pagador.
             """
         )
+        if selected_client_type == "Bom Pagador":
+            st.markdown(
+                """
+                * **Exemplo 'Bom Pagador':** As características que mais contribuíram para que este cliente fosse classificado como 'bom' foram geralmente os propósitos de crédito específicos (como 'outros' ou 'carro usado') e um valor de crédito menor, superando os fatores de risco que o modelo identificou.
+                """
+            )
+        else:
+            st.markdown(
+                """
+                * **Exemplo 'Mau Pagador':** Características como 'job_unskilled resident' (residência não qualificada) e 'purpose_domestic appliance' (propósito para eletrodomésticos) foram os maiores contribuintes para o risco, elevando a probabilidade de inadimplência deste cliente.
+                """
+            )
     else:
-        st.markdown(
-            """
-            * [cite_start]**Exemplo 'Mau Pagador':** Características como 'job_unskilled resident' (residência não qualificada) e 'purpose_domestic appliance' (propósito para eletrodomésticos) foram os maiores contribuintes para o risco, elevando a probabilidade de inadimplência deste cliente. [cite: 672]
-            """
-        )
+        st.warning("Não foi possível encontrar exemplos de 'Bom Pagador' ou 'Mau Pagador' suficientes no conjunto de teste para gerar Waterfall Plots.")
+
 
     # --- Tomada de Decisão e Aplicação Gerencial ---
     st.header("5. Tomada de Decisão e Aplicação Gerencial")
-    [cite_start]st.markdown("Com base na análise de explicabilidade usando SHAP values, o modelo Random Forest oferece informações cruciais para otimizar as estratégias de concessão de cartões de crédito, especialmente para jovens adultos e famílias de classe média. [cite: 673]")
+    st.markdown("Com base na análise de explicabilidade usando SHAP values, o modelo Random Forest oferece informações cruciais para otimizar as estratégias de concessão de cartões de crédito, especialmente para jovens adultos e famílias de classe média.")
     st.subheader("Recomendações para a Área de Crédito:")
     st.markdown(
         """
-        [cite_start]A instituição deve implementar as seguintes diretrizes estratégicas para equilibrar a expansão de clientes com a sustentabilidade financeira, utilizando a transparência dos SHAP values: [cite: 675]
+        A instituição deve implementar as seguintes diretrizes estratégicas para equilibrar a expansão de clientes com a sustentabilidade financeira, utilizando a transparência dos SHAP values:
 
-        * **Critérios Aprimorados para Perfis de Alto Risco:** Clientes que solicitam créditos de longa duração e de valores elevados, e que apresentam um status de conta corrente menos favorável, demonstram consistentemente um alto impacto SHAP para a classe "bad". [cite_start]Para esses perfis, sugere-se a aplicação de critérios de aprovação mais rigorosos, como a redução dos limites de crédito iniciais, a exigência de garantias adicionais ou a análise aprofundada de sua capacidade de pagamento e histórico financeiro. [cite: 676, 677]
-        * **Atenção a Propósitos de Crédito Específicos e Perfil Ocupacional:** Os waterfall plots destacaram que propósitos de crédito como "eletrodomésticos" (para mau pagador) e a profissão de "residente não qualificado" contribuíram significativamente para o risco. [cite_start]Recomenda-se uma análise mais detalhada para solicitações com esses propósitos e para clientes com tal perfil ocupacional, podendo incluir a validação de estabilidade de renda e histórico de empregos. [cite: 678]
-        * **Monitoramento Proativo para Mitigação de Risco:** Para clientes que se encaixam no público-alvo (jovens adultos, classe média) mas que apresentam alguns fatores de risco moderados identificados pelo SHAP (ex: idade mais jovem), pode-se implementar um monitoramento proativo do comportamento de pagamento nos primeiros meses do contrato. [cite_start]Isso permitiria a oferta de suporte, educação financeira ou opções de renegociação antes que a inadimplência se consolide, visando mitigar o risco precocemente. [cite: 679, 680]
-        [cite_start]Essas recomendações visam traduzir a inteligência do modelo de Machine Learning em ações tangíveis para a área de crédito, permitindo uma tomada de decisão mais precisa e justificada para a gestão do risco e a expansão estratégica da carteira de clientes. [cite: 681]
+        * **Critérios Aprimorados para Perfis de Alto Risco:** Clientes que solicitam créditos de longa duração e de valores elevados, e que apresentam um status de conta corrente menos favorável, demonstram consistentemente um alto impacto SHAP para a classe "bad". Para esses perfis, sugere-se a aplicação de critérios de aprovação mais rigorosos, como a redução dos limites de crédito iniciais, a exigência de garantias adicionais ou a análise aprofundada de sua capacidade de pagamento e histórico financeiro.
+        * **Atenção a Propósitos de Crédito Específicos e Perfil Ocupacional:** Os waterfall plots destacaram que propósitos de crédito como "eletrodomésticos" (para mau pagador) e a profissão de "residente não qualificado" contribuíram significativamente para o risco. Recomenda-se uma análise mais detalhada para solicitações com esses propósitos e para clientes com tal perfil ocupacional, podendo incluir a validação de estabilidade de renda e histórico de empregos.
+        * **Monitoramento Proativo para Mitigação de Risco:** Para clientes que se encaixam no público-alvo (jovens adultos, classe média) mas que apresentam alguns fatores de risco moderados identificados pelo SHAP (ex: idade mais jovem), pode-se implementar um monitoramento proativo do comportamento de pagamento nos primeiros meses do contrato. Isso permitiria a oferta de suporte, educação financeira ou opções de renegociação antes que a inadimplência se consolide, visando mitigar o risco precocemente.
+        Essas recomendações visam traduzir a inteligência do modelo de Machine Learning em ações tangíveis para a área de crédito, permitindo uma tomada de decisão mais precisa e justificada para a gestão do risco e a expansão estratégica da carteira de clientes.
         """
     )
 
@@ -330,7 +352,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     ax_elbow.grid(True)
     st.pyplot(fig_elbow)
     plt.close(fig_elbow)
-    [cite_start]st.markdown("No gráfico do cotovelo, uma inflexão clara pode ser observada em $K=3$, sugerindo que a redução da SSE é menos significativa após este ponto. [cite: 761, 762]")
+    st.markdown("No gráfico do cotovelo, uma inflexão clara pode ser observada em $K=3$, sugerindo que a redução da SSE é menos significativa após este ponto.")
 
     # Coeficiente de Silhueta
     silhouette_scores = []
@@ -348,10 +370,10 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     ax_sil.grid(True)
     st.pyplot(fig_sil)
     plt.close(fig_sil)
-    [cite_start]st.markdown("Embora o pico do Coeficiente de Silhueta tenha sido observado em $K=2$, e $K=4$ tenha uma pontuação ligeiramente superior a $K=3$, a escolha do K não se baseia apenas na métrica isolada. [cite: 765]")
+    st.markdown("Embora o pico do Coeficiente de Silhueta tenha sido observado em $K=2$, e $K=4$ tenha uma pontuação ligeiramente superior a $K=3$, a escolha do K não se baseia apenas na métrica isolada.")
 
     n_clusters_chosen = st.slider("Escolha o número de clusters (K) para KMeans:", min_value=2, max_value=5, value=3)
-    [cite_start]st.markdown(f"**Escolha de K={n_clusters_chosen}:** A escolha de $K=3$ (valor padrão) é justificada por ser o ponto de 'cotovelo' mais pronunciado e por buscar um equilíbrio entre a redução da variância e a complexidade do modelo, fornecendo insights gerenciais mais ricos. [cite: 768]")
+    st.markdown(f"**Escolha de K={n_clusters_chosen}:** A escolha de $K=3$ (valor padrão) é justificada por ser o ponto de 'cotovelo' mais pronunciado e por buscar um equilíbrio entre a redução da variância e a complexidade do modelo, fornecendo insights gerenciais mais ricos.")
 
     kmeans_model = KMeans(n_clusters=n_clusters_chosen, random_state=42, n_init=10)
     kmeans_labels = kmeans_model.fit_predict(X_processed_for_clustering)
@@ -382,9 +404,9 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.markdown(
         """
         **Resumo dos Perfis (Baseado em K=3):**
-        * **Cluster 0 (Maduros, Estáveis, Risco Baixo):** Idade média mais alta (aprox. 45 anos), mais créditos existentes, maior tempo de residência. Histórico de crédito "critical/other existing credit", mas emprego de longa duração e casa própria. [cite_start]Tendem a ser de menor risco. [cite: 1008, 1009, 1010, 1011]
-        * **Cluster 1 (Crédito Alto e Longo, Risco Alto):** Maior duração e valor de crédito (aprox. 38.63 meses e 7831.21). Idade moderada. Histórico predominantemente "existing paid", mas maior proporção de propriedade tipo "car" ou "no known property". [cite_start]Indicam perfis com certa maturidade, mas talvez com menor posse de bens imobiliários, buscando principalmente automóveis. [cite: 1014, 1015, 1016, 1017, 1018, 1019]
-        * **Cluster 2 (Jovens, Crédito Baixo, Risco Moderado):** Idade média mais baixa (aprox. 29 anos), menor duração e valor de crédito. Histórico predominantemente "existing paid". [cite_start]No entanto, demonstram alguma instabilidade de emprego e menor posse de telefone, o que pode ser um alerta. [cite: 1021, 1022, 1023, 1024, 1025, 1026]
+        * **Cluster 0 (Maduros, Estáveis, Risco Baixo):** Idade média mais alta (aprox. 45 anos), mais créditos existentes, maior tempo de residência. Histórico de crédito "critical/other existing credit", mas emprego de longa duração e casa própria. Tendem a ser de menor risco.
+        * **Cluster 1 (Crédito Alto e Longo, Risco Alto):** Maior duração e valor de crédito (aprox. 38.63 meses e 7831.21). Idade moderada. Histórico predominantemente "existing paid", mas maior proporção de propriedade tipo "car" ou "no known property". Indicam perfis com certa maturidade, mas talvez com menor posse de bens imobiliários, buscando principalmente automóveis.
+        * **Cluster 2 (Jovens, Crédito Baixo, Risco Moderado):** Idade média mais baixa (aprox. 29 anos), menor duração e valor de crédito. Histórico predominantemente "existing paid". No entanto, demonstram alguma instabilidade de emprego e menor posse de telefone, o que pode ser um alerta.
         """
     )
     # Visualização PCA dos Clientes Colorida por Cluster (KMeans)
@@ -411,7 +433,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.markdown("---")
 
     st.subheader("Detecção de Outliers com DBSCAN")
-    [cite_start]st.markdown("O DBSCAN é utilizado para identificar clientes atípicos na base de dados. [cite: 1071]")
+    st.markdown("O DBSCAN é utilizado para identificar clientes atípicos na base de dados.")
 
     # Gráfico de k-distância para determinar Epsilon
     k_neighbors_dbscan = st.slider("Escolha k-vizinhos para o gráfico de k-distância:", min_value=10, max_value=50, value=30)
@@ -434,7 +456,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.markdown("#### Parâmetros do DBSCAN (Ajustáveis)")
     eps_chosen_optimized = st.slider("Valor de Epsilon (eps):", min_value=0.5, max_value=10.0, value=3.7, step=0.1)
     min_samples_chosen_optimized = st.slider("Mínimo de Amostras (min_samples):", min_value=5, max_value=100, value=30)
-    [cite_start]st.markdown(f"Parâmetros otimizados: `eps={eps_chosen_optimized}` e `min_samples={min_samples_chosen_optimized}`. [cite: 1075]")
+    st.markdown(f"Parâmetros otimizados: `eps={eps_chosen_optimized}` e `min_samples={min_samples_chosen_optimized}`.")
 
     dbscan_optimized = DBSCAN(eps=eps_chosen_optimized, min_samples=min_samples_chosen_optimized)
     dbscan_labels_optimized = dbscan_optimized.fit_predict(X_processed_for_clustering)
@@ -447,7 +469,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.write(f"- Número de Clusters formados: {clusters_formed}")
     st.write(f"- Número de Outliers detectados: {outliers_count_optimized}")
     st.write(f"- Proporção de Outliers: {(outliers_count_optimized/len(dbscan_labels_optimized)*100):.2f}%")
-    [cite_start]st.markdown("Esses resultados indicam que o DBSCAN conseguiu formar um único e grande cluster que abrange a maior parte dos dados densos, enquanto uma proporção das amostras foi classificada como ruído (outliers). [cite: 1174]")
+    st.markdown("Esses resultados indicam que o DBSCAN conseguiu formar um único e grande cluster que abrange a maior parte dos dados densos, enquanto uma proporção das amostras foi classificada como ruído (outliers).")
 
     core_samples_mask = np.zeros_like(dbscan_optimized.labels_, dtype=bool)
     if hasattr(dbscan_optimized, 'core_sample_indices_'):
@@ -461,7 +483,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     st.write(f"- Total de Pontos de Núcleo (Core Points): {core_points_count}")
     st.write(f"- Total de Pontos de Borda (Border Points): {border_points_count}")
     st.write(f"- Total de Outliers (Noise Points): {outlier_points_count}")
-    [cite_start]st.markdown("Essa distribuição mostra uma estrutura clara: uma parte substancial dos dados forma um núcleo denso, com um número significativo de pontos de borda estendendo o cluster, e um grupo menor e identificável de verdadeiros outliers. [cite: 1179]")
+    st.markdown("Essa distribuição mostra uma estrutura clara: uma parte substancial dos dados forma um núcleo denso, com um número significativo de pontos de borda estendendo o cluster, e um grupo menor e identificável de verdadeiros outliers.")
 
 
     # Relação entre Outliers e Inadimplência
@@ -475,14 +497,16 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
         if total_outliers_count_optimized > 0:
             proportion_bad_in_outliers_optimized = (bad_outliers_count_optimized / total_outliers_count_optimized) * 100
             overall_bad_proportion = (df['class'] == 1).sum() / len(df) * 100
-            [cite_start]st.markdown(f"**Proporção de clientes 'bad' entre os Outliers: {proportion_bad_in_outliers_optimized:.2f}%** [cite: 1154]")
-            [cite_start]st.markdown(f"**Proporção geral de clientes 'bad' na base de dados: {overall_bad_proportion:.2f}%** [cite: 1154]")
-            [cite_start]st.markdown("Ao comparar essas proporções, é evidente que os outliers identificados pelo DBSCAN possuem uma proporção significativamente maior de clientes 'bad' (44.81%) do que a média da base de dados (30.00%). [cite: 1185, 1183, 1184]")
-            [cite_start]st.markdown("Isso indica uma forte relação: os perfis atípicos detectados pelo DBSCAN são consideravelmente mais propensos a serem 'maus pagadores'. Esse grupo de outliers merece atenção especial para avaliação de risco, pois suas características incomuns estão ligadas a uma maior probabilidade de inadimplência. [cite: 1186, 1187]")
+            st.markdown(f"**Proporção de clientes 'bad' entre os Outliers: {proportion_bad_in_outliers_optimized:.2f}%**")
+            st.markdown(f"**Proporção geral de clientes 'bad' na base de dados: {overall_bad_proportion:.2f}%**")
+            st.markdown("Ao comparar essas proporções, é evidente que os outliers identificados pelo DBSCAN possuem uma proporção significativamente maior de clientes 'bad' (44.81%) do que a média da base de dados (30.00%).")
+            st.markdown("Isso indica uma forte relação: os perfis atípicos detectados pelo DBSCAN são consideravelmente mais propensos a serem 'maus pagadores'. Esse grupo de outliers merece atenção especial para avaliação de risco, pois suas características incomuns estão ligadas a uma maior probabilidade de inadimplência.")
 
             st.markdown("#### Perfil dos Outliers (DBSCAN):")
             st.write("Analisando as características dos clientes classificados como outliers para entender o que os torna atípicos e mais arriscados:")
-            outlier_numeric_means = df_outliers_optimized[numeric_features_original].mean()
+            
+            # Para o perfil dos outliers, pegamos as features numéricas originais (sem serem normalizadas)
+            outlier_numeric_means = df_outliers_optimized[numeric_features].mean()
             st.markdown("**Média das Features Numéricas para Outliers:**")
             st.dataframe(outlier_numeric_means.to_frame(name='Média'))
 
@@ -496,13 +520,13 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
             st.markdown(
                 """
                 **Interpretação do Perfil dos Outliers:**
-                * O perfil exato dos outliers dependerá das suas características específicas. No geral, eles são indivíduos que não se encaixam nos padrões de densidade dos clusters principais. Isso pode significar, por exemplo, que possuem uma combinação rara de alto valor de crédito com baixa idade, ou um histórico de crédito muito atípico, ou uma duração de empréstimo excepcionalmente longa para um dado propósito.
+                * O perfil exato dos outliers dependerá das suas características específicas, mas, em geral, são indivíduos que não se encaixam nos padrões de densidade dos clusters principais. Isso pode significar, por exemplo, que possuem uma combinação rara de alto valor de crédito com baixa idade, ou um histórico de crédito muito atípico, ou uma duração de empréstimo excepcionalmente longa para um dado propósito.
                 * A alta proporção de 'bad' entre os outliers (44.81%) confirma que essas características atípicas estão associadas a um risco significativamente maior de inadimplência. Isso reforça a necessidade de uma análise manual ou critérios de aprovação extremamente rigorosos para esses perfis.
                 """
             )
 
         else:
-            st.warning("Não foram detectados outliers pelo DBSCAN com os parâmetros otimizados para análise.")
+            st.warning("Não foram detectados outliers pelo DBSCAN com os parâmetros otimizados para análise ou não há clientes 'bad' entre eles.")
     else:
         st.warning("Não foram detectados outliers pelo DBSCAN com os parâmetros otimizados para análise.")
 
@@ -522,11 +546,11 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     )
     ax_pca_dbscan.set_title(f'Visualização PCA dos Clientes Colorida por Rótulos DBSCAN (eps={eps_chosen_optimized}, min_samples={min_samples_chosen_optimized})')
     ax_pca_dbscan.set_xlabel(f'Componente Principal 1 ({pca_dbscan_plot.explained_variance_ratio_[0]*100:.2f}% variância explicada)')
-    ax_dbscan.set_ylabel(f'Componente Principal 2 ({pca_dbscan_plot.explained_variance_ratio_[1]*100:.2f}% variância explicada)')
+    ax_pca_dbscan.set_ylabel(f'Componente Principal 2 ({pca_dbscan_plot.explained_variance_ratio_[1]*100:.2f}% variância explicada)')
     ax_pca_dbscan.grid(True)
     st.pyplot(fig_pca_dbscan)
     plt.close(fig_pca_dbscan)
-    [cite_start]st.markdown("A visualização mostra claramente um grande cluster central (pontos roxos) que abrange a maioria dos dados, e os outliers (pontos vermelhos) localizados predominantemente na periferia ou em regiões mais esparsas, confirmando sua natureza de pontos menos densos ou isolados. [cite: 1191, 1192]")
+    st.markdown("A visualização mostra claramente um grande cluster central (pontos roxos) que abrange a maioria dos dados, e os outliers (pontos vermelhos) localizados predominantemente na periferia ou em regiões mais esparsas, confirmando sua natureza de pontos menos densos ou isolados.")
 
     st.markdown("---")
 
@@ -550,14 +574,14 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
 
     st.markdown(
         """
-        [cite_start]A análise cruzada da clusterização KMeans com a variável-alvo `class` é fundamental para identificar segmentos de clientes com perfis de risco distintos. [cite: 1223]
+        A análise cruzada da clusterização KMeans com a variável-alvo `class` é fundamental para identificar segmentos de clientes com perfis de risco distintos.
 
-        * **Cluster 0 (Baixo Risco):** Apresenta a menor proporção de clientes 'bad', com aproximadamente 21% de inadimplentes. [cite_start]Representa o segmento de menor risco e pode ser foco de campanhas de aquisição. [cite: 1226, 1228, 1229]
-        * **Cluster 1 (Alto Risco):** Se destaca como o grupo de maior risco, concentrando a mais alta taxa de clientes 'bad', com aproximadamente 46-47% de inadimplentes. [cite_start]Exige políticas de crédito rigorosas. [cite: 1231, 1232, 1233]
-        * **Cluster 2 (Risco Moderado):** Apresenta uma proporção de inadimplentes de aproximadamente 30%, alinhada com a média geral da base de dados. [cite_start]Representa um risco intermediário, podendo ter estratégias de acompanhamento próximo. [cite: 1235, 1236]
+        * **Cluster 0 (Baixo Risco):** Apresenta a menor proporção de clientes 'bad', com aproximadamente 21% de inadimplentes. Representa o segmento de menor risco e pode ser foco de campanhas de aquisição.
+        * **Cluster 1 (Alto Risco):** Se destaca como o grupo de maior risco, concentrando a mais alta taxa de clientes 'bad', com aproximadamente 46-47% de inadimplentes. Exige políticas de crédito rigorosas.
+        * **Cluster 2 (Risco Moderado):** Apresenta uma proporção de inadimplentes de aproximadamente 30%, alinhada com a média geral da base de dados. Representa um risco intermediário, podendo ter estratégias de acompanhamento próximo.
 
-        A segmentação dos clientes por KMeans, ao revelar a concentração de risco em diferentes perfis, oferece à instituição financeira uma ferramenta estratégica poderosa. [cite_start]Essa análise permite uma tomada de decisão mais informada e direcionada, otimizando a alocação de recursos, a gestão de riscos e o desenvolvimento de ofertas de produtos personalizadas para cada segmento de cliente. [cite: 1238, 1239]
+        A segmentação dos clientes por KMeans, ao revelar a concentração de risco em diferentes perfis, oferece à instituição financeira uma ferramenta estratégica poderosa. Essa análise permite uma tomada de decisão mais informada e direcionada, otimizando a alocação de recursos, a gestão de riscos e o desenvolvimento de ofertas de produtos personalizadas para cada segmento de cliente.
         """
     )
 else:
-    st.warning("Por favor, faça o upload do arquivo 'credit_customers.csv' ou verifique o caminho do arquivo de exemplo.")
+    st.warning("O dashboard não pôde ser inicializado. Por favor, verifique se o arquivo `credit_customers.csv` está no diretório correto do seu repositório.")
