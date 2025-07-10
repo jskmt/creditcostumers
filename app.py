@@ -98,7 +98,7 @@ if 'df' in locals(): # Garante que o dataframe foi carregado
     unique, counts = np.unique(y_res, return_counts=True)
     st.write("Nova Proporção de Classes após SMOTE:")
     st.write(dict(zip(unique, counts)))
-   st.markdown("Com o SMOTE, as classes 'good' (0) e 'bad' (1) estão agora **balanceadas com 700 registros cada**, o que é ideal para o treinamento dos modelos e evita viés para a classe majoritária.")
+    st.markdown("Com o SMOTE, as classes 'good' (0) e 'bad' (1) estão agora **balanceadas com 700 registros cada**, o que é ideal para o treinamento dos modelos e evita viés para a classe majoritária.")
     # --- Análise Preditiva com Modelos Supervisionados ---
     st.header("3. Análise Preditiva com Modelos Supervisionados")
     st.write("Dividindo os dados em conjuntos de treino e teste (70/30)...")
