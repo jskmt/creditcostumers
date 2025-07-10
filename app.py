@@ -57,24 +57,30 @@ st.dataframe(df_original[["Risco de Inadimplência (%)"]].join(df[["class"]]))
 
 # SHAP
 st.subheader("Explicabilidade com SHAP")
-explainer = shap.TreeExplainer(rf)
-shap_values = explainer.shap_values(X_res[:100])
+# 1. Reconstruir os nomes das features após o pipeline
+cat_encoded = preprocessor.named_transformers_['cat'].get_feature_names_out(cat_features)
+all_feature_names = list(num_features) + list(cat_encoded)
 
-# Verifica se retornou lista (para modelos de classificação)
+# 2. Aplicar TreeExplainer (mais compatível com RandomForest)
+explainer = shap.TreeExplainer(rf)
+shap_values = explainer.shap_values(X_res[:100])  # limitar amostras por desempenho
+
+# 3. Selecionar os shap_values da classe '1' (bad)
 if isinstance(shap_values, list):
-    shap_values_to_plot = shap_values[1]  # Classe "bad"
+    shap_values_to_plot = shap_values[1]
 else:
     shap_values_to_plot = shap_values
 
-# Precisa recriar o DataFrame com nomes de features
-X_df = pd.DataFrame(X_res[:100].toarray() if hasattr(X_res, "toarray") else X_res[:100])
-fig, ax = plt.subplots(figsize=(10, 6))
-shap.summary_plot(shap_values_to_plot, X_df, max_display=10, show=False)
-st.pyplot(fig)
+# 4. Criar DataFrame com os nomes das features
+X_df = pd.DataFrame(
+    X_res[:100].toarray() if hasattr(X_res, "toarray") else X_res[:100],
+    columns=all_feature_names
+)
 
-
+# 5. Gerar summary plot com SHAP
+st.subheader("Explicabilidade com SHAP (Summary Plot)")
 fig, ax = plt.subplots(figsize=(10, 6))
-shap.plots.beeswarm(shap_values, max_display=10, show=False)
+shap.summary_plot(shap_values_to_plot, X_df, max_display=15, show=False)
 st.pyplot(fig)
 
 # Escolha individual
