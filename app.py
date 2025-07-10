@@ -57,8 +57,21 @@ st.dataframe(df_original[["Risco de Inadimplência (%)"]].join(df[["class"]]))
 
 # SHAP
 st.subheader("Explicabilidade com SHAP")
-explainer = shap.Explainer(rf, X_res)
-shap_values = explainer(X_res[:100])  # limitar para desempenho
+explainer = shap.TreeExplainer(rf)
+shap_values = explainer.shap_values(X_res[:100])
+
+# Verifica se retornou lista (para modelos de classificação)
+if isinstance(shap_values, list):
+    shap_values_to_plot = shap_values[1]  # Classe "bad"
+else:
+    shap_values_to_plot = shap_values
+
+# Precisa recriar o DataFrame com nomes de features
+X_df = pd.DataFrame(X_res[:100].toarray() if hasattr(X_res, "toarray") else X_res[:100])
+fig, ax = plt.subplots(figsize=(10, 6))
+shap.summary_plot(shap_values_to_plot, X_df, max_display=10, show=False)
+st.pyplot(fig)
+
 
 fig, ax = plt.subplots(figsize=(10, 6))
 shap.plots.beeswarm(shap_values, max_display=10, show=False)
